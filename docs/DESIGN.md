@@ -18,7 +18,7 @@ Borrow Meshtastic's *visual language* only. Do not use the Meshtastic name or lo
 | RHYTHM | 1 | App screens stay consistent so controls are always where the hand expects them. |
 | MOTION | 1 | Hover and press states only. The boats moving on the map are the motion; nothing else needs to move. |
 
-The public landing page on tmtrac.my may go to ENERGY 2. **[OWNER]** confirm.
+The public landing page on tmtrac.my goes to **ENERGY 2 / RHYTHM 2 / MOTION 1** (owner, 2026-11-07): bolder type and bigger use of the live map than the app, plus real race photos once you have them (no stock or generated images), sections allowed to vary, still no decorative animation. Same tokens, same icon set.
 
 ---
 

@@ -1,4 +1,4 @@
-# TMTRAC fast tracking: plan (draft v0.4)
+# TMTRAC fast tracking: plan (draft v0.5)
 
 Two-second GPS tracking for dinghy racing over LoRa, for **TMTRAC** (tmtrac.my).
 
@@ -13,7 +13,7 @@ Items marked **[DECIDE]** still need an answer.
 | Topic | Decision | Source |
 |---|---|---|
 | Product | TMTRAC, tmtrac.my | You |
-| Region | Malaysia, 919 to 924 MHz | You |
+| Region | Malaysia. Fast trackers use **919 to 923 MHz** only (see 3.2) | You + MCMC spec |
 | Boards | Heltec V4 + 2× T-Echo, all 915 MHz versions | You |
 | Boats | Dinghies, about 30 per race, 2 s updates | You |
 | Venues | Mostly near shore with mobile data. Sometimes none, so recording must survive offline | You |
@@ -25,6 +25,8 @@ Items marked **[DECIDE]** still need an answer.
 | Design | Meshtastic visual language + antislop rules, custom icons, no logo yet. See [DESIGN.md](DESIGN.md) | You |
 | Race logic on devices | None, not even offline. The server's engine is the only one | You + rebuild plan |
 | MCMC power limit | Test at Meshtastic `MY_919` limits; confirm the official rule before selling to clubs | You |
+| Repos | Firmware, protocol and decoder here (public). App in `boat-race-tracker` (private) | You |
+| License | MIT for this repo | You |
 
 ---
 
@@ -37,14 +39,14 @@ Items marked **[DECIDE]** still need an answer.
 ### What this project adds
 Trackers and a gateway that deliver every boat's position every 2 seconds, plus the code that hands those positions to the TMTRAC server. At 2 s, GPS start-line and finish suggestions become precise enough to be really useful to the race officer (taps by the RO are still the official record).
 
-### Proposed split (recommended, waiting for your go-ahead)
+### Repo split (decided)
 
-Why two repos is better here:
+Why two repos:
 - **Public vs. private.** `boat-tracker` is public; `boat-race-tracker` is private. Clubs need to download and flash firmware themselves, so firmware releases should be public. The app, billing and server code can stay private.
 - **Different tools and release cycles.** Firmware is C++ built with PlatformIO and flashed onto devices; the app is TypeScript deployed to a server and the Play Store. Firmware versions on the water must keep working with newer apps, so they need their own versioned releases.
 - **Narrow connection.** The only shared code is the packet decoder (about 100 lines plus test vectors). It's published from here as a small versioned package and used by the server.
 
-The cost is one extra step when the packet format changes: release a new decoder version here, then update it in the app. If you'd rather keep everything private, one repo works too: firmware goes in a `firmware/` folder inside `boat-race-tracker`.
+The cost is one extra step when the packet format changes: release a new decoder version here, then update it in the app.
 
 | Repo | Holds |
 |---|---|
@@ -116,9 +118,14 @@ The rebuild already plans native Bluetooth in the Capacitor app for T-Echos, so 
 **Plan: custom TDMA firmware.** Meshtastic stays supported in TMTRAC for clubs that already use it (slow tracking, cruiser races, safety boats). A T-Echo can be flashed between the two.
 
 ### 3.2 Malaysia band rules
-- Meshtastic's `MY_919` profile: 919.0 to 924.0 MHz, 27 dBm power cap, no duty-cycle limit. We follow the same limits.
-- Heltec V4 high-power boards can reach about 28 dBm, so firmware caps transmit power at 27 dBm minus antenna gain above 0 dBi.
-- **Still to confirm:** the official MCMC class assignment for 919 to 924 MHz. Options: ask MCMC directly, or ask the Malaysian Meshtastic community, who have presumably checked this already. Low priority for testing, needed before selling to clubs.
+Meshtastic's firmware source (`src/mesh/RadioInterface.cpp`) summarises MCMC's *Short Range Devices Specification* (https://www.mcmc.gov.my/skmmgovmy/media/General/pdf/Short-Range-Devices-Specification.pdf) as:
+- **919 to 923 MHz: 500 mW (27 dBm), no restrictions.**
+- 923 to 924 MHz: 500 mW, but only with a 1% duty cycle or frequency hopping.
+
+So:
+- **Fast trackers use 919 to 923 MHz only.** Our TDMA has every tracker transmitting on a fixed frequency every 2 s, which wouldn't meet the 923 to 924 MHz conditions. 4 MHz still fits 16 channels of 250 kHz.
+- Transmit power is capped at 27 dBm. The Heltec V4 high-power board can reach about 28 dBm, so firmware turns it down, minus any antenna gain above 0 dBi.
+- **Before selling to clubs:** read the MCMC document itself to confirm whether 500 mW means transmitter output or EIRP (including antenna gain), and whether the devices need type approval (SIRIM) for commercial sale.
 
 ### 3.3 Radio settings and timing
 
@@ -130,7 +137,9 @@ The rebuild already plans native Bluetooth in the Capacitor app for T-Echos, so 
 
 **Plan: SF7 / 250 kHz, 40 ms slots, 2 s cycle.** Slot 0 is the gateway beacon, slots 1 to 45 are boats and mark boats, 46 to 49 spare. This matches Meshtastic's **ShortFast** preset, so the Phase H0 range test measures the real setting.
 
-Fallback if range is too short: SF7 / 125 kHz with the fleet split across two channels and two gateway radios. The 5 MHz band also lets separate courses (e.g. Optimist and ILCA) each run on their own channel.
+Fallback if range is too short: SF7 / 125 kHz with the fleet split across two channels and two gateway radios. The 919 to 923 MHz band also lets separate courses (e.g. Optimist and ILCA) each run on their own channel.
+
+Confirmed from Meshtastic's firmware source (`src/mesh/MeshRadio.h`): ShortFast is SF7, 250 kHz, coding rate 4/5. (Some forum posts say 500 kHz; that's ShortTurbo.)
 
 Slot timing relies on the GPS PPS pulse. **Verify in Phase H1** that PPS is wired on the T-Echo.
 
@@ -203,7 +212,7 @@ These run alongside the rebuild's phases. **H** = hardware.
 
 | Phase | Deliverable | Done when |
 |---|---|---|
-| **H0. Range test** (with your 3 boards, no code) | Meshtastic on all three, region `MY_919`, preset ShortFast. Range Test module: T-Echo on a dinghy sends, Heltec V4 on the committee boat receives. Can share a day with the rebuild's "Phase 0 test day" | `docs/phase0-results.md`: range at deck height vs. on a pole, loss when crew blocks or after capsize, T-Echo battery hours |
+| **H0. Range test** (with your 3 boards, no code) | Step-by-step guide: [range-test-h0.md](range-test-h0.md). Can share a day with the rebuild's "Phase 0 test day" | `docs/phase0-results.md`: range at deck height vs. on a pole, loss when crew blocks or after capsize, T-Echo battery hours |
 | **H1. Firmware MVP** | Tracker firmware (T-Echo), gateway firmware (Heltec V4) with flash buffer, TDMA slots, packet spec + test vectors, TypeScript decoder | 2 T-Echos at 2 s, under 2% loss, gateway survives power cycle without losing data |
 | **H2. Simulator + bridge** | Fleet simulator (30 boats, offline gaps), gateway → Bluetooth protocol, decoder package ready for the Capacitor app | Simulated race reaches the rebuild server as `positions` batches |
 | **H3. On-water test** | 2 T-Echos sailing with the gateway on the committee boat, relayed by a phone running the TMTRAC app | Tracks show on the live map with under 5 s delay, and survive a signal dropout |
@@ -219,7 +228,7 @@ To get to H4 you'd need about 3 to 8 more trackers (915 MHz), waterproof boxes o
 | Risk | Mitigation |
 |---|---|
 | Range too short with low dinghy antennas | H0 measures it first. Raise the gateway antenna. Fallback: SF7 / 125 kHz on two channels |
-| Unclear MCMC power limit | Cap at Meshtastic `MY_919` limits; confirm before selling to clubs |
+| MCMC details (power measured how, type approval for sale) | Stay in 919 to 923 MHz at 27 dBm; read the MCMC specification before selling to clubs |
 | PPS not wired, so slot timing is loose | Verify in H1. Fallback: wider slots timed from the gateway beacon |
 | Phone's Bluetooth link drops (battery saver, app killed) | Gateway buffers to flash and resends. Android foreground service, as the rebuild already plans |
 | Tracker underwater after capsize | Sealed box, lanyard, gaps shown honestly on the map |
@@ -231,6 +240,5 @@ To get to H4 you'd need about 3 to 8 more trackers (915 MHz), waterproof boxes o
 
 ## 8. Still open
 
-1. **Repo split** (section 1): go ahead with firmware + protocol here (public) and the app in `boat-race-tracker` (private)? And is the rebuild plan in the tmtrac repo still current?
-2. **License** for this public repo, if the split goes ahead. Something like MIT or Apache 2.0 lets clubs and others use the firmware freely; leaving it unlicensed means nobody else may legally reuse it.
-3. **Design**, from [DESIGN.md](DESIGN.md): the landing page energy level.
+1. **Is the rebuild plan in the tmtrac repo still current?** I can't read `boat-race-tracker` from here.
+2. **Range test results** (Phase H0) decide the tracker model, the gateway antenna setup, and whether SF7 / 250 kHz holds up.
