@@ -1,5 +1,5 @@
 # boat-tracker
 
-Live tracking for sailboat races using LoRa GPS trackers (Heltec WiFi LoRa 32 V4, LilyGO T-Echo and similar). Race officers set up courses and bind trackers to boats; spectators follow the race live on the web or in an app.
+Fast LoRa tracking for TMTRAC (tmtrac.my): trackers and gateway firmware that report every dinghy's position every 2 seconds, for live race tracking.
 
-Status: planning. See [docs/PLAN.md](docs/PLAN.md).
+Status: planning. See [docs/PLAN.md](docs/PLAN.md) and [docs/DESIGN.md](docs/DESIGN.md).
