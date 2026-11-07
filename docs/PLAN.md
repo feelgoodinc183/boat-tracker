@@ -1,4 +1,4 @@
-# TMTRAC fast tracking: plan (draft v0.5)
+# TMTRAC fast tracking: plan (draft v0.6)
 
 Two-second GPS tracking for dinghy racing over LoRa, for **TMTRAC** (tmtrac.my).
 
@@ -129,7 +129,7 @@ So:
 
 ### 3.3 Radio settings and timing
 
-| Setting | 20-byte packet | 24 bytes (with auth tag) | Slots in 2 s |
+| Setting | 20 bytes | 24 to 26 bytes (final packet is 26) | Slots in 2 s |
 |---|---|---|---|
 | SF7 / 125 kHz | 56.6 ms | about 61 ms | 26: **too few for 30 boats** |
 | **SF7 / 250 kHz** | 28.3 ms | about 31 ms | **50 (40 ms slots)** |
@@ -143,21 +143,15 @@ Confirmed from Meshtastic's firmware source (`src/mesh/MeshRadio.h`): ShortFast 
 
 Slot timing relies on the GPS PPS pulse. **Verify in Phase H1** that PPS is wired on the T-Echo.
 
-### 3.4 Draft position packet (20 bytes, +4 auth tag)
+### 3.4 Position packet
 
-| Bytes | Field | Notes |
-|---|---|---|
-| 1 | version (3 bits) + type (5 bits) | position, status, mark, etc. |
-| 2 | tracker ID | unique across TMTRAC |
-| 1 | sequence number | loss stats |
-| 2 | fix time | deciseconds mod 6553.6 s; full time rebuilt from receive time |
-| 4 | latitude | int32, 1e-7 degrees |
-| 4 | longitude | int32, 1e-7 degrees |
-| 2 | SOG | 0.01 kn |
-| 2 | COG | 0.01 degrees |
-| 1 | battery | percent |
-| 1 | flags | fix quality, low satellites, low battery, button pressed |
-| (4) | auth tag | truncated AES-CMAC with a per-club key |
+**Specified and implemented:** see [protocol/SPEC.md](../protocol/SPEC.md), with C code for the firmware, a TypeScript package for the server and app, and shared test vectors.
+
+26 bytes, about 30.8 ms on air (the same airtime as the 24-byte draft, because LoRa sends in symbol groups). Changes from the draft:
+- **Full GPS time** (4 bytes) instead of a 2-byte rolling time, so the server never guesses the date, even for uploads after a day offline.
+- **Encrypted position, speed, course, battery and flags** with the club key. Otherwise anyone near the course with a LoRa board could read live positions and get around the spectator delay (rule 41). Costs no airtime.
+- **HDOP** (GPS precision) in the flags byte, so the server can ignore poor fixes for start and finish suggestions.
+- The auth tag is always present, not optional.
 
 ### 3.5 Slots and binding
 - **MVP:** each tracker has a fixed slot set when flashed (a club's tracker #7 always uses slot 7). Binding to a boat stays a server-side record, using the rebuild's `bindTracker` command.
@@ -213,10 +207,10 @@ These run alongside the rebuild's phases. **H** = hardware.
 | Phase | Deliverable | Done when |
 |---|---|---|
 | **H0. Range test** (with your 3 boards, no code) | Step-by-step guide: [range-test-h0.md](range-test-h0.md). Can share a day with the rebuild's "Phase 0 test day" | `docs/phase0-results.md`: range at deck height vs. on a pole, loss when crew blocks or after capsize, T-Echo battery hours |
-| **H1. Firmware MVP** | Tracker firmware (T-Echo), gateway firmware (Heltec V4) with flash buffer, TDMA slots, packet spec + test vectors, TypeScript decoder | 2 T-Echos at 2 s, under 2% loss, gateway survives power cycle without losing data |
+| **H1. Firmware MVP** | Packet spec, C and TypeScript code and test vectors (**done**, `protocol/`). Tracker firmware (T-Echo), gateway firmware (Heltec V4) with flash buffer, TDMA slots | 2 T-Echos at 2 s, under 2% loss, gateway survives power cycle without losing data |
 | **H2. Simulator + bridge** | Fleet simulator (30 boats, offline gaps), gateway → Bluetooth protocol, decoder package ready for the Capacitor app | Simulated race reaches the rebuild server as `positions` batches |
 | **H3. On-water test** | 2 T-Echos sailing with the gateway on the committee boat, relayed by a phone running the TMTRAC app | Tracks show on the live map with under 5 s delay, and survive a signal dropout |
-| **H4. Small fleet** | 5 to 10 trackers, waterproof mounting, auth tags, a USB flashing page for club admins | A club admin flashes and binds a new tracker without help |
+| **H4. Small fleet** | 5 to 10 trackers, waterproof mounting, club key provisioning, a USB flashing page for club admins | A club admin flashes and binds a new tracker without help |
 | **H5. Full event** | 30 boats | A full race day with no manual fixes |
 
 To get to H4 you'd need about 3 to 8 more trackers (915 MHz), waterproof boxes or pouches, an external 915 MHz antenna and pole for the gateway, and a spare Heltec V4. Buy after H0 picks the tracker model.
@@ -232,7 +226,7 @@ To get to H4 you'd need about 3 to 8 more trackers (915 MHz), waterproof boxes o
 | PPS not wired, so slot timing is loose | Verify in H1. Fallback: wider slots timed from the gateway beacon |
 | Phone's Bluetooth link drops (battery saver, app killed) | Gateway buffers to flash and resends. Android foreground service, as the rebuild already plans |
 | Tracker underwater after capsize | Sealed box, lanyard, gaps shown honestly on the map |
-| Spoofed positions | Per-club auth tag |
+| Spoofed or eavesdropped positions | Per-club key: packets are encrypted and authenticated |
 | cPanel limits at multi-club scale | Keep server portable; move to Oracle when needed |
 | Rule 41 complaints | Server-side spectator delay |
 

@@ -1,0 +1,30 @@
+{
+  "name": "@tmtrac/protocol",
+  "version": "0.1.0",
+  "description": "TMTRAC radio protocol: encode, decode and authenticate tracker packets",
+  "license": "MIT",
+  "type": "module",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "engines": {
+    "node": ">=22.18"
+  },
+  "scripts": {
+    "test": "node --test test/*.test.ts",
+    "typecheck": "tsc --noEmit",
+    "build": "tsc -p tsconfig.build.json",
+    "vectors": "node scripts/generate-vectors.ts",
+    "vectors:check": "node scripts/generate-vectors.ts --check"
+  },
+  "devDependencies": {
+    "@types/node": "22.20.5",
+    "typescript": "5.9.3"
+  }
+}
