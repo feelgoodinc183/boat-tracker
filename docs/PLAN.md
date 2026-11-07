@@ -1,4 +1,4 @@
-# TMTRAC fast tracking: plan (draft v0.3)
+# TMTRAC fast tracking: plan (draft v0.4)
 
 Two-second GPS tracking for dinghy racing over LoRa, for **TMTRAC** (tmtrac.my).
 
@@ -22,7 +22,9 @@ Items marked **[DECIDE]** still need an answer.
 | Apps | Web first. Android app via **Capacitor** for race officers and skippers | Rebuild plan |
 | Race logic | **Server owns the race**, server clock, append-only event log, pure rules engine | Rebuild plan |
 | Hosting (v1) | cPanel (Exabytes) with Node 22 and built-in SQLite | Rebuild plan |
-| Design | Meshtastic visual language + antislop rules. See [DESIGN.md](DESIGN.md) | You |
+| Design | Meshtastic visual language + antislop rules, custom icons, no logo yet. See [DESIGN.md](DESIGN.md) | You |
+| Race logic on devices | None, not even offline. The server's engine is the only one | You + rebuild plan |
+| MCMC power limit | Test at Meshtastic `MY_919` limits; confirm the official rule before selling to clubs | You |
 
 ---
 
@@ -35,7 +37,14 @@ Items marked **[DECIDE]** still need an answer.
 ### What this project adds
 Trackers and a gateway that deliver every boat's position every 2 seconds, plus the code that hands those positions to the TMTRAC server. At 2 s, GPS start-line and finish suggestions become precise enough to be really useful to the race officer (taps by the RO are still the official record).
 
-### Proposed split [DECIDE]
+### Proposed split (recommended, waiting for your go-ahead)
+
+Why two repos is better here:
+- **Public vs. private.** `boat-tracker` is public; `boat-race-tracker` is private. Clubs need to download and flash firmware themselves, so firmware releases should be public. The app, billing and server code can stay private.
+- **Different tools and release cycles.** Firmware is C++ built with PlatformIO and flashed onto devices; the app is TypeScript deployed to a server and the Play Store. Firmware versions on the water must keep working with newer apps, so they need their own versioned releases.
+- **Narrow connection.** The only shared code is the packet decoder (about 100 lines plus test vectors). It's published from here as a small versioned package and used by the server.
+
+The cost is one extra step when the packet format changes: release a new decoder version here, then update it in the app. If you'd rather keep everything private, one repo works too: firmware goes in a `firmware/` folder inside `boat-race-tracker`.
 
 | Repo | Holds |
 |---|---|
@@ -164,11 +173,11 @@ Dinghy concerns: trackers sit low (0.5 to 1 m) and go underwater in a capsize. R
 |---|---|
 | **Phone has signal** (most races) | Gateway → phone → server live. Spectators see the race with the event's delay |
 | **Patchy** | The app queues positions and commands, uploads when signal returns. Server accepts late positions (they carry GPS time) and recalculates. Spectators see "catching up" |
-| **No signal all day** | Race runs entirely from the RO phone, with the map and GPS suggestions working from local data. Everything uploads back on shore and the race appears as a replay. The gateway's own copy is the backup |
+| **No signal all day** | The RO phone shows boats on the map from local data and records the RO's commands (starts, recalls, finish taps) in a queue. No GPS start or finish suggestions until the phone reconnects. Everything uploads back on shore, the server runs the race, and it appears as a replay with suggestions. The gateway's own copy is the backup |
 
 This follows the rebuild plan's offline rule: the device queues commands with unique IDs, the server ignores duplicates and rejects commands that no longer apply.
 
-One open point for the rebuild: its principle "no race logic runs on a device" conflicts with GPS suggestions working offline. Suggested answer: the engine stays a pure TypeScript package, the server's result is always the official one, and the app may run the same package locally **only to show suggestions** while offline. **[DECIDE]**
+**Decided:** no race logic runs on a device, even offline. The phone only displays positions and queues commands. The cost: at venues with no signal, the RO works from taps alone during the race, which is how races are run without tracking today anyway.
 
 ---
 
@@ -222,6 +231,6 @@ To get to H4 you'd need about 3 to 8 more trackers (915 MHz), waterproof boxes o
 
 ## 8. Still open
 
-1. **Repo split** (section 1): firmware + protocol here, app in `boat-race-tracker`? And is the rebuild plan in the tmtrac repo still current?
-2. **Offline suggestions** (section 4): can the app run the race engine locally just to show GPS suggestions while offline?
-3. **Design**, from [DESIGN.md](DESIGN.md): keep Lucide icons or not, the TMTRAC logo, and the landing page energy level.
+1. **Repo split** (section 1): go ahead with firmware + protocol here (public) and the app in `boat-race-tracker` (private)? And is the rebuild plan in the tmtrac repo still current?
+2. **License** for this public repo, if the split goes ahead. Something like MIT or Apache 2.0 lets clubs and others use the firmware freely; leaving it unlicensed means nobody else may legally reuse it.
+3. **Design**, from [DESIGN.md](DESIGN.md): the landing page energy level.

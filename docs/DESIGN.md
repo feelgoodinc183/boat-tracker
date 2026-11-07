@@ -81,20 +81,21 @@ Notes:
 - Shadows only on things that float above the map (dialogs, the boat detail sheet).
 - No glass, no glow, no gradients. Meshtastic uses none of these either.
 
-## Icons [OWNER]
+## Icons
 
-Meshtastic's client uses **Lucide** icons, and tmtrac already does too. The antislop rules flag Lucide as a common default look (R-04). Since your reference uses it, it is a fair choice, but it's your call:
+**Owner decision (2026-11-07): custom icons.** Lucide (used by Meshtastic and today's tmtrac) is dropped.
 
-1. **Keep Lucide** (matches Meshtastic, no extra work), or
-2. **Drop it** for a sailing-specific set (flags, marks, boats) where Lucide has no good glyph.
+One TMTRAC icon set, drawn in-house as SVG:
+- **Racing:** the code flags in their standard designs (P, I, Z, U, black, X, first substitute, AP, N, L, S, orange), mark (rounding to port / starboard), gate, start line, finish line, committee boat, wind direction, dinghy (map marker and list icon).
+- **Tracking:** tracker, gateway, signal strength, GPS fix / no fix, battery levels, offline / catching up.
+- **General UI:** only the ones the screens actually use (close, menu, back, settings, search, edit, delete, undo, share, sun/moon for the theme switch). The list is fixed when screens are designed, so no icon is drawn without a place to use it.
 
-A middle path: Lucide for generic UI (close, menu, settings) plus a small custom set for racing concepts (code flags, marks, start line). The code flags (P, I, Z, U, black, X, first substitute, AP) should be drawn properly regardless, as racers recognise them.
+Style: 24 px grid, one stroke weight, square-ish corners to match the `0.625rem` control radius, `currentColor` so icons follow the theme. Flags are filled in their real colours; flag colours are part of the signal, not decoration. Every icon used alone on a button gets a text label for screen readers.
 
-## Identity [OWNER]
+## Identity
 
-Not decided yet:
-- TMTRAC logo or wordmark. Until one exists, the UI shows "TMTRAC" as text in Inter Semibold.
-- An identity motif: one repeated element that makes TMTRAC feel like itself, not like a Meshtastic reskin. Candidates come from you or your club.
+- **Logo: none yet (owner, 2026-11-07).** The UI shows "TMTRAC" as text in Inter Semibold. No logo is drawn until you ask for one.
+- **Identity motif:** comes from the custom icon set. The code flags and marks are drawn the same way everywhere (app, map, replay, results), so they become what makes TMTRAC recognisable, rather than looking like a Meshtastic reskin.
 
 ## Fixed rules for every screen
 
