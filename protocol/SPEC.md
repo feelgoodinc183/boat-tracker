@@ -1,6 +1,6 @@
 # TMTRAC radio protocol, version 1
 
-Status: **draft**. The position packet is complete and has reference code in C (`c/`) and TypeScript (`ts/`), with shared test vectors (`test-vectors/`). Gateway beacons and the gateway-to-phone link are sketched at the end and will be specified in Phase H2.
+Status: **draft, for the optional fast mode** (TMTRAC launches on stock Meshtastic; see docs/PLAN.md section 3). The position packet is complete and has reference code in C (`c/`) and TypeScript (`ts/`), with shared test vectors (`test-vectors/`). Gateway beacons and the gateway-to-phone link are sketched at the end and will be specified in Phase H2.
 
 All multi-byte fields are **little-endian** (both the nRF52840 and the ESP32-S3 are little-endian, so firmware can read fields without byte swapping).
 

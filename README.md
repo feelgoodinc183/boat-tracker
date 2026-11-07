@@ -1,7 +1,7 @@
 # boat-tracker
 
-Fast LoRa tracking for TMTRAC (tmtrac.my): trackers and gateway firmware that report every dinghy's position every 2 seconds, for live race tracking.
+Boat tracking for TMTRAC (tmtrac.my): tracker hardware, Meshtastic racing profiles, test guides, and a radio protocol for an optional faster tracker.
 
-Status: planning, with the radio protocol specified and implemented. See [docs/PLAN.md](docs/PLAN.md), [docs/DESIGN.md](docs/DESIGN.md) and [protocol/](protocol/).
+Status: planning. Start with [docs/PLAN.md](docs/PLAN.md), then [docs/meshtastic-setup.md](docs/meshtastic-setup.md) and [docs/range-test.md](docs/range-test.md).
 
 License: MIT, see [LICENSE](LICENSE).

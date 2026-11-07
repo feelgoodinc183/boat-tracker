@@ -1,6 +1,7 @@
 # TMTRAC radio protocol
 
-The packet format fast trackers send over LoRa, with reference code for both ends:
+The packet format for an **optional fast tracker** (2-second updates for inshore start lines), with reference code for both ends. TMTRAC launches on stock Meshtastic instead (see [docs/PLAN.md](../docs/PLAN.md) section 3); this stays ready in case clubs want GPS start-line calls later.
+
 
 | Folder | What | Used by |
 |---|---|---|

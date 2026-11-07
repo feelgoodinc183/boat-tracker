@@ -1,8 +1,10 @@
-# TMTRAC fast tracking: plan (draft v0.6)
+# TMTRAC tracking: plan (draft v0.7)
 
-Two-second GPS tracking for dinghy racing over LoRa, for **TMTRAC** (tmtrac.my).
+How boats get tracked for **TMTRAC** (tmtrac.my): inshore races with dinghies and keelboats, and coastal or passage races, for clubs across Malaysia.
 
-TMTRAC already exists: a race-management app with live spectator tracking, deployed on cPanel, using Meshtastic trackers. A rebuild is planned (`tmtrac/docs/REBUILD_PLAN.md`, new code in `feelgoodinc183/boat-race-tracker`). This document covers the part neither of those solves yet: **tracking 30 boats every 2 seconds**, which Meshtastic can't do.
+TMTRAC is the race-management app (live in the `tmtrac` repo; the rebuild is going into `feelgoodinc183/boat-race-tracker`). This repo covers the **tracking side**: which hardware, how it's set up, how it's tested, and an optional faster radio protocol for later.
+
+**Big change from v0.6:** trackers run **stock Meshtastic** at launch instead of custom firmware. Custom firmware only gave one thing Meshtastic can't (2-second updates for inshore starts), at the cost of weeks of firmware work and no relaying between boats for coastal races. See section 3.
 
 Items marked **[DECIDE]** still need an answer.
 
@@ -13,226 +15,188 @@ Items marked **[DECIDE]** still need an answer.
 | Topic | Decision | Source |
 |---|---|---|
 | Product | TMTRAC, tmtrac.my | You |
-| Region | Malaysia. Fast trackers use **919 to 923 MHz** only (see 3.2) | You + MCMC spec |
-| Boards | Heltec V4 + 2× T-Echo, all 915 MHz versions | You |
-| Boats | Dinghies, about 30 per race, 2 s updates | You |
-| Venues | Mostly near shore with mobile data. Sometimes none, so recording must survive offline | You |
+| Boats | Dinghies **and** keelboats, mixed classes | You |
+| Race types | Inshore buoy races **and** coastal / passage races | You |
+| Size | 30 to 50 boats at the biggest regattas, on 2 to 3 courses | You |
+| Trackers at launch | **Stock Meshtastic**, set up with racing profiles ([meshtastic-setup.md](meshtastic-setup.md)) | This plan |
+| Custom fast firmware | Optional later, only for inshore start-line calls. Protocol already specified in [protocol/](../protocol/) | This plan |
+| Region | Malaysia. Use **919 to 923 MHz** only (see 4.1) | MCMC spec |
+| Boards on hand | Heltec V4 + 2× T-Echo, all 915 MHz versions | You |
+| Venues | Mostly near shore with mobile data; sometimes none | You |
 | Business model | Many clubs (multi-club comes back after v1 in the rebuild plan) | You + rebuild plan |
 | Spectator feed delay | Yes, per event | You |
-| Apps | Web first. Android app via **Capacitor** for race officers and skippers | Rebuild plan |
-| Race logic | **Server owns the race**, server clock, append-only event log, pure rules engine | Rebuild plan |
-| Hosting (v1) | cPanel (Exabytes) with Node 22 and built-in SQLite | Rebuild plan |
-| Design | Meshtastic visual language + antislop rules, custom icons, no logo yet. See [DESIGN.md](DESIGN.md) | You |
-| Race logic on devices | None, not even offline. The server's engine is the only one | You + rebuild plan |
-| MCMC power limit | Test at Meshtastic `MY_919` limits; confirm the official rule before selling to clubs | You |
-| Repos | Firmware, protocol and decoder here (public). App in `boat-race-tracker` (private) | You |
-| License | MIT for this repo | You |
+| Apps | Web first. Android app via Capacitor for race officers and skippers | Rebuild plan |
+| Race logic | Server owns the race; none on devices, even offline | You + rebuild plan |
+| Hosting | cPanel for the app (v1). Oracle free tier VPS for the MQTT broker (section 6) | Rebuild plan + this plan |
+| Design | Meshtastic look + antislop rules, custom icons, no logo yet ([DESIGN.md](DESIGN.md)) | You |
+| Repos | This one public (MIT): tracking guides, tools, protocol. App private in `boat-race-tracker` | You |
 
 ---
 
-## 1. How this fits with TMTRAC
+## 1. How positions reach TMTRAC
 
-### What exists today
-- **tmtrac** (live): React + Express app. Trackers are Meshtastic devices; positions arrive by a phone or laptop relaying a T-Echo over Bluetooth, or through the Meshtastic MQTT broker. Positions arrive about every 30 seconds or slower.
-- **Rebuild plan**: smaller app, server owns the race, Capacitor Android app, cPanel Node 22. It lists "LoRa positions are slow (every 30 s or more)" as a risk, so GPS can only *suggest* starts and finishes.
-
-### What this project adds
-Trackers and a gateway that deliver every boat's position every 2 seconds, plus the code that hands those positions to the TMTRAC server. At 2 s, GPS start-line and finish suggestions become precise enough to be really useful to the race officer (taps by the RO are still the official record).
-
-### Repo split (decided)
-
-Why two repos:
-- **Public vs. private.** `boat-tracker` is public; `boat-race-tracker` is private. Clubs need to download and flash firmware themselves, so firmware releases should be public. The app, billing and server code can stay private.
-- **Different tools and release cycles.** Firmware is C++ built with PlatformIO and flashed onto devices; the app is TypeScript deployed to a server and the Play Store. Firmware versions on the water must keep working with newer apps, so they need their own versioned releases.
-- **Narrow connection.** The only shared code is the packet decoder (about 100 lines plus test vectors). It's published from here as a small versioned package and used by the server.
-
-The cost is one extra step when the packet format changes: release a new decoder version here, then update it in the app.
-
-| Repo | Holds |
-|---|---|
-| **boat-tracker** (this one) | Tracker firmware, gateway firmware, radio protocol, packet decoder (TypeScript package), fleet simulator, hardware and setup guides |
-| **boat-race-tracker** (rebuild) | Server, race engine, web app, Capacitor app. Adds "relay a TMTRAC gateway" next to its existing "relay a Bluetooth T-Echo" |
-
-The two connect at one place: the `positions` message the rebuild plan already defines:
-
-```
-{ type: 'positions', trackerId, fixes: [{ lat, lng, speedKt, headingDeg, fixTime }] }
-```
-
-The gateway (through the phone) sends exactly that, so the server doesn't care whether a fix came from Meshtastic, a phone's GPS or a fast tracker.
-
-I couldn't open `boat-race-tracker` (it's private and I don't have access to it from this session), so I've worked from the plan in the tmtrac repo. If the rebuild has moved on since, tell me what changed.
-
----
-
-## 2. System overview
+tmtrac already reads Meshtastic in two ways: a phone relaying a Meshtastic node over Bluetooth, and an MQTT bridge. The plan uses both, one per race type.
 
 ```mermaid
 flowchart LR
-  subgraph Water["On the water"]
-    T1["Fast tracker<br/>(dinghy)"]
-    T2["Fast tracker<br/>(dinghy)"]
-    TM["Fast tracker<br/>(mark boat)"]
+  subgraph Inshore["Inshore course (one per course)"]
+    DT["Dinghy trackers<br/>T-Echo"]
+    KT["Keelboat trackers<br/>12 V, external antenna"]
+    RX["Receiver node<br/>Heltec V4 on a pole"]
+    RO["RO phone<br/>TMTRAC app"]
   end
-  subgraph Venue["Committee boat / shore"]
-    GW["Gateway<br/>Heltec V4"]
-    RO["RO phone<br/>TMTRAC app (Capacitor)<br/>stores while offline"]
+  subgraph Coastal["Coastal / passage race"]
+    B1["Boat trackers<br/>relay each other"]
+    SS["Shore station<br/>on a hill, WiFi or 4G"]
   end
-  subgraph Server["TMTRAC server"]
-    API["positions + commands"]
-    ENG["race engine"]
-    LOG[("event log<br/>SQLite")]
-  end
-  SP["Spectators<br/>(delayed feed)"]
+  MQ["MQTT broker<br/>(Oracle VPS)"]
+  SRV["TMTRAC server<br/>(cPanel)"]
+  SP["Spectators<br/>(delayed)"]
 
-  T1 -- "LoRa 2 s slots" --> GW
-  T2 -- LoRa --> GW
-  TM -- LoRa --> GW
-  GW -- "Bluetooth LE<br/>(or USB / WiFi)" --> RO
-  RO -- "HTTPS / WebSocket<br/>live or catch-up" --> API
-  API --> ENG --> LOG
-  API --> SP
+  DT -- "LoRa every 10 s" --> RX
+  KT -- LoRa --> RX
+  RX -- Bluetooth --> RO
+  RO -- "HTTPS, queued offline" --> SRV
+  B1 -- "LoRa every 1-5 min,<br/>boat to boat" --> SS
+  SS -- "MQTT over internet" --> MQ
+  MQ --> SRV
+  SRV --> SP
 ```
 
-**Key change from v0.2:** the gateway connects to the race officer's phone over Bluetooth, and the phone sends positions to the server. That means:
-- No 4G router or WiFi needed on the gateway. The RO phone already has mobile data near shore.
-- **Offline works for free.** When there's no signal, the TMTRAC app keeps positions on the phone and uploads when signal returns. The gateway also keeps a copy in its own memory.
-- The RO sees all boats on the map on the water even with no internet, because the app has the data locally.
-- No MQTT broker, so cPanel hosting is enough for v1.
-- Bandwidth is tiny: 30 boats × 20 bytes every 2 s is 300 bytes per second, well within Bluetooth LE.
+**Inshore:** each course has its own frequency and a receiver node on its committee boat, connected by Bluetooth to the race officer's phone. The phone uploads positions, and keeps them while there's no signal (the rebuild already plans this).
 
-The rebuild already plans native Bluetooth in the Capacitor app for T-Echos, so this reuses that work.
+**Coastal and passage:** boats spread out over tens of km, so trackers relay each other's positions (Meshtastic's mesh) toward shore stations on high ground. Shore stations forward to an MQTT broker, and tmtrac's existing bridge reads them.
+
+**Out of LoRa range entirely** (far offshore, no shore station in reach): Meshtastic doesn't store positions for later, so these show as gaps. Backups: skippers' phones sharing GPS where there's mobile data (already in the rebuild plan), or satellite trackers for genuinely offshore events. Out of scope for now.
 
 ---
 
-## 3. Radio and firmware
+## 2. Update rates and capacity
 
-### 3.1 Why custom firmware
+A Meshtastic position packet with speed, heading, time and sequence number takes roughly 50 ms on air at ShortFast (estimate; the M0 test measures it). Meshtastic "Tracker" devices stop sending when the channel is more than 40% busy, and above roughly 20% busy, collisions start costing a noticeable share of packets.
 
-| Option | Problem for 30 dinghies at 2 s |
-|---|---|
-| Meshtastic (what tmtrac uses) | Built for chat and occasional positions. Mesh rebroadcasts multiply airtime. It can't schedule 30 boats every 2 s |
-| LoRaWAN | Random transmit times cause collisions as the fleet grows. Needs a network server per club |
-| **Custom LoRa with time slots (TDMA)** | Each boat sends in its own slot, timed by GPS. No collisions, fixed delay, one cheap gateway |
+| Situation | Boats on one frequency | Interval | Channel busy | Verdict |
+|---|---|---|---|---|
+| One inshore course | 15 to 25 | 10 s | 8 to 13% | Good |
+| One inshore course, large | 30 | 10 s | 15% | Good |
+| Whole regatta on one frequency | 50 | 10 s | 25% | Avoid: losses climb. Use one frequency per course |
+| Whole regatta on one frequency | 50 | 15 s | 17% | Workable fallback |
+| Coastal race | 50 | 2 min, with up to 3 relays | about 6% | Good |
+| Any inshore course | 30 | 2 s | 75% | Not possible on Meshtastic |
 
-**Plan: custom TDMA firmware.** Meshtastic stays supported in TMTRAC for clubs that already use it (slow tracking, cruiser races, safety boats). A T-Echo can be flashed between the two.
+**Plan:** one frequency per course, 10-second updates inshore, 1 to 5 minutes for coastal and passage races.
 
-### 3.2 Malaysia band rules
-Meshtastic's firmware source (`src/mesh/RadioInterface.cpp`) summarises MCMC's *Short Range Devices Specification* (https://www.mcmc.gov.my/skmmgovmy/media/General/pdf/Short-Range-Devices-Specification.pdf) as:
-- **919 to 923 MHz: 500 mW (27 dBm), no restrictions.**
-- 923 to 924 MHz: 500 mW, but only with a 1% duty cycle or frequency hopping.
+What 10 s means for each feature:
 
-So:
-- **Fast trackers use 919 to 923 MHz only.** Our TDMA has every tracker transmitting on a fixed frequency every 2 s, which wouldn't meet the 923 to 924 MHz conditions. 4 MHz still fits 16 channels of 250 kHz.
-- Transmit power is capped at 27 dBm. The Heltec V4 high-power board can reach about 28 dBm, so firmware turns it down, minus any antenna gain above 0 dBi.
-- **Before selling to clubs:** read the MCMC document itself to confirm whether 500 mW means transmitter output or EIRP (including antenna gain), and whether the devices need type approval (SIRIM) for commercial sale.
-
-### 3.3 Radio settings and timing
-
-| Setting | 20 bytes | 24 to 26 bytes (final packet is 26) | Slots in 2 s |
-|---|---|---|---|
-| SF7 / 125 kHz | 56.6 ms | about 61 ms | 26: **too few for 30 boats** |
-| **SF7 / 250 kHz** | 28.3 ms | about 31 ms | **50 (40 ms slots)** |
-| SF7 / 500 kHz | 14.1 ms | about 16 ms | 80+ |
-
-**Plan: SF7 / 250 kHz, 40 ms slots, 2 s cycle.** Slot 0 is the gateway beacon, slots 1 to 45 are boats and mark boats, 46 to 49 spare. This matches Meshtastic's **ShortFast** preset, so the Phase H0 range test measures the real setting.
-
-Fallback if range is too short: SF7 / 125 kHz with the fleet split across two channels and two gateway radios. The 919 to 923 MHz band also lets separate courses (e.g. Optimist and ILCA) each run on their own channel.
-
-Confirmed from Meshtastic's firmware source (`src/mesh/MeshRadio.h`): ShortFast is SF7, 250 kHz, coding rate 4/5. (Some forum posts say 500 kHz; that's ShortTurbo.)
-
-Slot timing relies on the GPS PPS pulse. **Verify in Phase H1** that PPS is wired on the T-Echo.
-
-### 3.4 Position packet
-
-**Specified and implemented:** see [protocol/SPEC.md](../protocol/SPEC.md), with C code for the firmware, a TypeScript package for the server and app, and shared test vectors.
-
-26 bytes, about 30.8 ms on air (the same airtime as the 24-byte draft, because LoRa sends in symbol groups). Changes from the draft:
-- **Full GPS time** (4 bytes) instead of a 2-byte rolling time, so the server never guesses the date, even for uploads after a day offline.
-- **Encrypted position, speed, course, battery and flags** with the club key. Otherwise anyone near the course with a LoRa board could read live positions and get around the spectator delay (rule 41). Costs no airtime.
-- **HDOP** (GPS precision) in the flags byte, so the server can ignore poor fixes for start and finish suggestions.
-- The auth tag is always present, not optional.
-
-### 3.5 Slots and binding
-- **MVP:** each tracker has a fixed slot set when flashed (a club's tracker #7 always uses slot 7). Binding to a boat stays a server-side record, using the rebuild's `bindTracker` command.
-- **Later:** the gateway beacon assigns slots per race, so a club can own more than 45 trackers.
-
-### 3.6 Hardware
-
-| Board | Role | Notes |
+| Feature | At 10 s | Notes |
 |---|---|---|
-| Heltec WiFi LoRa 32 V4 | **Gateway** | ESP32-S3: Bluetooth LE to the phone, WiFi as an alternative, high TX power for the beacon |
-| LilyGO T-Echo | **Tracker (first candidate)** | nRF52840 low power, L76K GPS, 850 mAh. Case not waterproof |
-| LilyGO T-Echo Card | Tracker candidate | Weatherproof + solar. Worth buying one to test |
-| Heltec V4 + L76K + battery + box | Tracker candidate | Possibly cheaper, more assembly |
-
-Dinghy concerns: trackers sit low (0.5 to 1 m) and go underwater in a capsize. Range depends most on the **gateway antenna height** (external antenna on a pole on the committee boat). Trackers need a sealed box or dry pouch, a lanyard, and a consistent mounting spot.
+| Spectator map | Smooth if the app animates between fixes | Spectators watch minutes behind anyway |
+| Rankings, mark roundings | Fine | |
+| Finish time suggestions | Within a few seconds by interpolation | RO taps stay the record |
+| **Start line (over early)** | **Not possible**: boats move 25 to 40 m between fixes | The one real gap. See section 3 |
+| Coaching replays | Coarse | Tacks visible, fine detail lost |
 
 ---
 
-## 4. Working offline
+## 3. Custom fast firmware: later, if clubs want it
 
-| Situation | What happens |
+The custom protocol in [protocol/](../protocol/) (26-byte encrypted packets in fixed 2-second time slots, C and TypeScript code, tested) stays in the repo. It only matters for **GPS start-line calls** and detailed coaching replays on inshore courses.
+
+**When to build it:** after the first real regattas on Meshtastic, if clubs ask for GPS over-early calls, or if Meshtastic loses too many packets inshore. Cost: tracker and gateway firmware (several weeks), plus on-water testing. Inshore boats could carry a fast tracker while coastal races stay on Meshtastic, since a T-Echo can be flashed either way.
+
+---
+
+## 4. Radio
+
+### 4.1 Malaysia band rules
+Meshtastic's firmware source summarises MCMC's *Short Range Devices Specification* (https://www.mcmc.gov.my/skmmgovmy/media/General/pdf/Short-Range-Devices-Specification.pdf):
+- **919 to 923 MHz: 500 mW (27 dBm), no restrictions.**
+- 923 to 924 MHz: 500 mW only with a 1% duty cycle or frequency hopping.
+
+Meshtastic's `MY_919` region covers 919 to 924 MHz, so **set the frequency explicitly** to stay inside 919 to 923.
+
+**Before selling to clubs:** read the MCMC document itself to confirm whether 500 mW means transmitter output or EIRP (including antenna gain), and whether devices sold commercially need SIRIM type approval.
+
+### 4.2 Frequencies
+
+All on the ShortFast preset (SF7, 250 kHz). Spaced 1 MHz apart so a strong nearby transmitter on one course doesn't bleed into another:
+
+| Use | Frequency |
 |---|---|
-| **Phone has signal** (most races) | Gateway → phone → server live. Spectators see the race with the event's delay |
-| **Patchy** | The app queues positions and commands, uploads when signal returns. Server accepts late positions (they carry GPS time) and recalculates. Spectators see "catching up" |
-| **No signal all day** | The RO phone shows boats on the map from local data and records the RO's commands (starts, recalls, finish taps) in a queue. No GPS start or finish suggestions until the phone reconnects. Everything uploads back on shore, the server runs the race, and it appears as a replay with suggestions. The gateway's own copy is the backup |
+| Course A | 919.875 MHz |
+| Course B | 920.875 MHz |
+| Course C | 921.875 MHz |
+| Coastal / passage races | 922.625 MHz |
 
-This follows the rebuild plan's offline rule: the device queues commands with unique IDs, the server ignores duplicates and rejects commands that no longer apply.
+[DECIDE, later] whether clubs at different venues share these or get their own. Clubs far apart can reuse them.
 
-**Decided:** no race logic runs on a device, even offline. The phone only displays positions and queues commands. The cost: at venues with no signal, the RO works from taps alone during the race, which is how races are run without tracking today anyway.
-
----
-
-## 5. Server changes needed in the rebuild
-
-Small, because the rebuild's design already fits:
-1. Accept `positions` batches of up to a few thousand fixes (catch-up after offline).
-2. Dedupe by `(trackerId, fixTime)`, since a tracker may be heard by two gateways or uploaded twice.
-3. Spectator feed delay per event, applied on the server so real-time positions never reach a public browser (Racing Rules of Sailing rule 41).
-4. Tracker records gain `kind` (meshtastic, phone, fast), slot number and last battery.
-5. Position storage sized for 2 s updates: 30 boats × 3 hours ≈ 160,000 rows per race. Fine for SQLite with an index on `(trackerId, fixTime)`.
-
-### Hosting [DECIDE, later]
-- **v1 on cPanel**, as the rebuild plan decided. With positions coming in through the phone, there's no MQTT broker to host.
-- **Watch for:** Passenger stopping the app when idle (cold starts), WebSocket limits on shared hosting, and CPU limits on busy Saturdays with several clubs racing.
-- **Oracle free tier** is the next step when multi-club launches or cPanel limits show up. The server should stay portable (plain Node + SQLite, settings via environment variables) so moving is a deploy, not a rewrite. If you use Oracle, upgrade the account to Pay As You Go so the idle VM isn't reclaimed, and choose Singapore as the home region.
+### 4.3 Security and fairness
+- Every event gets its **own private channel with a random 256-bit key**. Meshtastic encrypts positions with it, so nobody nearby can read live positions and get around the spectator delay (Racing Rules of Sailing rule 41).
+- Channel position precision is set to full; the key and channel are kept by the TMTRAC server and never sent to spectators' browsers (tmtrac already does this).
+- The spectator delay is applied on the server.
 
 ---
 
-## 6. Phases (hardware track)
+## 5. Hardware
 
-These run alongside the rebuild's phases. **H** = hardware.
+| Role | Hardware | Notes |
+|---|---|---|
+| Dinghy tracker | LilyGO T-Echo (or T-Echo Card, weatherproof) | Dry pouch or sealed box, lanyard, mounted the same place on every boat |
+| Keelboat tracker | Any Meshtastic board with GPS, powered from the boat's 12 V, external antenna on the pushpit | Higher antenna and no battery limit: much better range. Stays on the boat for the season |
+| Committee boat receiver | Heltec V4 with an external antenna on a pole, powered by a power bank or 12 V | One per course. Bluetooth to the RO phone |
+| Shore station (coastal races) | Meshtastic board on a mast on high ground, mains or solar, WiFi or 4G | Placed so the race route stays in range. Coverage decides where |
+
+---
+
+## 6. Hosting
+
+- **TMTRAC app: cPanel (Node 22)**, as the rebuild plan decided.
+- **MQTT broker: Oracle free tier VPS** running Mosquitto. Shared cPanel hosting can't run a broker. Using our own broker rather than the public Meshtastic one gives control over uptime and who can connect, and keeps race traffic off a shared service. tmtrac's bridge already supports approved broker hosts.
+- Oracle setup notes: choose Singapore as the home region (it can't be changed later), and upgrade the account to Pay As You Go so the always-free VM isn't reclaimed for being idle between races.
+
+---
+
+## 7. What the rebuild app needs
+
+1. Accept Meshtastic positions from both the Bluetooth relay and the MQTT bridge (both exist in tmtrac today).
+2. Dedupe by tracker and fix time: a position can arrive through two receivers or both paths.
+3. Event setup: per-course frequency and channel key, so the app can show which receiver belongs to which course.
+4. Spectator delay per event, applied on the server.
+5. Animate boats between fixes on the map.
+6. Later: one-tap "apply racing profile" from the TMTRAC app to a tracker over Bluetooth, so club admins don't set 15 Meshtastic settings by hand.
+
+---
+
+## 8. Phases
 
 | Phase | Deliverable | Done when |
 |---|---|---|
-| **H0. Range test** (with your 3 boards, no code) | Step-by-step guide: [range-test-h0.md](range-test-h0.md). Can share a day with the rebuild's "Phase 0 test day" | `docs/phase0-results.md`: range at deck height vs. on a pole, loss when crew blocks or after capsize, T-Echo battery hours |
-| **H1. Firmware MVP** | Packet spec, C and TypeScript code and test vectors (**done**, `protocol/`). Tracker firmware (T-Echo), gateway firmware (Heltec V4) with flash buffer, TDMA slots | 2 T-Echos at 2 s, under 2% loss, gateway survives power cycle without losing data |
-| **H2. Simulator + bridge** | Fleet simulator (30 boats, offline gaps), gateway → Bluetooth protocol, decoder package ready for the Capacitor app | Simulated race reaches the rebuild server as `positions` batches |
-| **H3. On-water test** | 2 T-Echos sailing with the gateway on the committee boat, relayed by a phone running the TMTRAC app | Tracks show on the live map with under 5 s delay, and survive a signal dropout |
-| **H4. Small fleet** | 5 to 10 trackers, waterproof mounting, club key provisioning, a USB flashing page for club admins | A club admin flashes and binds a new tracker without help |
-| **H5. Full event** | 30 boats | A full race day with no manual fixes |
-
-To get to H4 you'd need about 3 to 8 more trackers (915 MHz), waterproof boxes or pouches, an external 915 MHz antenna and pole for the gateway, and a spare Heltec V4. Buy after H0 picks the tracker model.
+| **M0. Range and rate test** (your 3 boards) | Guide: [range-test.md](range-test.md), now with a second session for 10-second Tracker mode | `docs/phase0-results.md`: range at deck height vs. pole, loss at 10 s, crew blocking and capsize, battery hours, Meshtastic's reported channel use |
+| **M1. Racing profiles** | [meshtastic-setup.md](meshtastic-setup.md): settings for every role and race type (**draft done**) | Profiles confirmed by the M0 results |
+| **M2. One inshore course** | As many trackers as available, one receiver, RO phone with the TMTRAC app | Live positions on the map with fewer than 5% missing, through a full race |
+| **M3. Coastal setup** | One shore station, Mosquitto on Oracle, tmtrac bridge connected | Positions from a coastal race arrive through boat-to-boat relays |
+| **M4. Full regatta** | 30 to 50 boats, 2 to 3 courses | A regatta day with no manual fixes |
+| Later: fast mode | Custom firmware using [protocol/](../protocol/) | Only if clubs want GPS start-line calls |
 
 ---
 
-## 7. Risks
+## 9. Risks
 
 | Risk | Mitigation |
 |---|---|
-| Range too short with low dinghy antennas | H0 measures it first. Raise the gateway antenna. Fallback: SF7 / 125 kHz on two channels |
-| MCMC details (power measured how, type approval for sale) | Stay in 919 to 923 MHz at 27 dBm; read the MCMC specification before selling to clubs |
-| PPS not wired, so slot timing is loose | Verify in H1. Fallback: wider slots timed from the gateway beacon |
-| Phone's Bluetooth link drops (battery saver, app killed) | Gateway buffers to flash and resends. Android foreground service, as the rebuild already plans |
-| Tracker underwater after capsize | Sealed box, lanyard, gaps shown honestly on the map |
-| Spoofed or eavesdropped positions | Per-club key: packets are encrypted and authenticated |
-| cPanel limits at multi-club scale | Keep server portable; move to Oracle when needed |
+| Dinghy range too short (low antennas, capsizes) | M0 measures it. Raise the receiver antenna |
+| Collisions at 10 s with large fleets | One frequency per course; 15 s fallback; Tracker role keeps sending until the channel is 40% busy |
+| Coastal fleet goes out of range of every shore station | Plan shore station sites along the route; phones as backup; gaps shown honestly |
+| Meshtastic changes settings or behaviour between versions | Pin a tested firmware version in the setup guide; re-test before upgrading club trackers |
+| MCMC details (power measurement, type approval for sale) | Stay in 919 to 923 MHz at 27 dBm; read the specification before selling |
+| Live positions intercepted | Private channel with a random 256-bit key per event |
 | Rule 41 complaints | Server-side spectator delay |
+| No start-line calls at 10 s | RO taps are the record, as today. Fast mode later if clubs want it |
 
 ---
 
-## 8. Still open
+## 10. Still open
 
 1. **Is the rebuild plan in the tmtrac repo still current?** I can't read `boat-race-tracker` from here.
-2. **Range test results** (Phase H0) decide the tracker model, the gateway antenna setup, and whether SF7 / 250 kHz holds up.
+2. **MQTT broker on the Oracle VPS:** OK to set up for coastal races (phase M3)?
+3. **Shore station sites** for the coastal routes you race most. Needed before M3.
