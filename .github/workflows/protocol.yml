@@ -1,0 +1,36 @@
+name: protocol
+
+on:
+  push:
+    paths: ['protocol/**', '.github/workflows/protocol.yml']
+  pull_request:
+    paths: ['protocol/**', '.github/workflows/protocol.yml']
+
+jobs:
+  typescript:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: protocol/ts
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: protocol/ts/package-lock.json
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm test
+      - run: npm run vectors:check
+      - run: npm run build
+
+  c:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: protocol/c
+    steps:
+      - uses: actions/checkout@v4
+      - run: make test
+      - run: make sanitize

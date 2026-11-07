@@ -1,0 +1,350 @@
+{
+  "protocolVersion": 1,
+  "packet": "position",
+  "valid": [
+    {
+      "name": "typical racing fix",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "input": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 2.5191234,
+        "lon": 101.7967891,
+        "sogKn": 5.43,
+        "cogDeg": 213.5,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 0.9
+      },
+      "packet": "2107002ae8b6c4222106a516ca80a2d45d3e7886ce50422815ce",
+      "decoded": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 2.5191234,
+        "lon": 101.7967891,
+        "sogKn": 5.43,
+        "cogDeg": 213.5,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 1
+      },
+      "raw": {
+        "tracker_id": 7,
+        "seq": 42,
+        "time_ds": 583317224,
+        "lat_e7": 25191234,
+        "lon_e7": 1017967891,
+        "sog_ckn": 543,
+        "cog_cdeg": 21350,
+        "battery": 87,
+        "flags": 34
+      }
+    },
+    {
+      "name": "same fix under a different club key",
+      "clubKey": "f0e1d2c3b4a5968778695a4b3c2d1e0f",
+      "input": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 2.5191234,
+        "lon": 101.7967891,
+        "sogKn": 5.43,
+        "cogDeg": 213.5,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 0.9
+      },
+      "packet": "2107002ae8b6c422d54f3581f3f0b6dea618a763e4cbe26969a2",
+      "decoded": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 2.5191234,
+        "lon": 101.7967891,
+        "sogKn": 5.43,
+        "cogDeg": 213.5,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 1
+      },
+      "raw": {
+        "tracker_id": 7,
+        "seq": 42,
+        "time_ds": 583317224,
+        "lat_e7": 25191234,
+        "lon_e7": 1017967891,
+        "sog_ckn": 543,
+        "cog_cdeg": 21350,
+        "battery": 87,
+        "flags": 34
+      }
+    },
+    {
+      "name": "southern and western hemisphere, last valid time, highest ID and sequence",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "input": {
+        "trackerId": 65534,
+        "seq": 255,
+        "fixTimeMs": 2165186329500,
+        "lat": -33.8567844,
+        "lon": -151.2152967,
+        "sogKn": 5.43,
+        "cogDeg": 213.5,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 0.9
+      },
+      "packet": "21feffffffffffffa73fef2204ed5135d4af63192ea040ebed8f",
+      "decoded": {
+        "trackerId": 65534,
+        "seq": 255,
+        "fixTimeMs": 2165186329500,
+        "lat": -33.8567844,
+        "lon": -151.2152967,
+        "sogKn": 5.43,
+        "cogDeg": 213.5,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 1
+      },
+      "raw": {
+        "tracker_id": 65534,
+        "seq": 255,
+        "time_ds": 4294967295,
+        "lat_e7": -338567844,
+        "lon_e7": -1512152967,
+        "sog_ckn": 543,
+        "cog_cdeg": 21350,
+        "battery": 87,
+        "flags": 34
+      }
+    },
+    {
+      "name": "no fix yet, unknowns, first valid time",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "input": {
+        "trackerId": 1,
+        "seq": 0,
+        "fixTimeMs": 1735689600000,
+        "lat": 0,
+        "lon": 0,
+        "sogKn": 0,
+        "cogDeg": null,
+        "batteryPct": null,
+        "charging": false,
+        "fix": "none",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": null
+      },
+      "packet": "210100000000000059337597dd7c85208e0910ef6a272694f675",
+      "decoded": {
+        "trackerId": 1,
+        "seq": 0,
+        "fixTimeMs": 1735689600000,
+        "lat": 0,
+        "lon": 0,
+        "sogKn": 0,
+        "cogDeg": null,
+        "batteryPct": null,
+        "charging": false,
+        "fix": "none",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": null
+      },
+      "raw": {
+        "tracker_id": 1,
+        "seq": 0,
+        "time_ds": 0,
+        "lat_e7": 0,
+        "lon_e7": 0,
+        "sog_ckn": 0,
+        "cog_cdeg": 65535,
+        "battery": 127,
+        "flags": 0
+      }
+    },
+    {
+      "name": "every flag set, maximum speed, course and battery",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "input": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 2.5191234,
+        "lon": 101.7967891,
+        "sogKn": 655.35,
+        "cogDeg": 359.99,
+        "batteryPct": 100,
+        "charging": true,
+        "fix": "3d-dgps",
+        "lowBattery": true,
+        "buttonPressed": true,
+        "hdop": 9
+      },
+      "packet": "2107002ae8b6c4222106a516ca80a2d4bdc381597d8d5baaf642",
+      "decoded": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 2.5191234,
+        "lon": 101.7967891,
+        "sogKn": 655.35,
+        "cogDeg": 359.99,
+        "batteryPct": 100,
+        "charging": true,
+        "fix": "3d-dgps",
+        "lowBattery": true,
+        "buttonPressed": true,
+        "hdop": 7.5
+      },
+      "raw": {
+        "tracker_id": 7,
+        "seq": 42,
+        "time_ds": 583317224,
+        "lat_e7": 25191234,
+        "lon_e7": 1017967891,
+        "sog_ckn": 65535,
+        "cog_cdeg": 35999,
+        "battery": 228,
+        "flags": 255
+      }
+    },
+    {
+      "name": "latitude and longitude limits",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "input": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 90,
+        "lon": -180,
+        "sogKn": 0,
+        "cogDeg": 0,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 0.9
+      },
+      "packet": "2107002ae8b6c422638c8122d95bb87c423c1ed5ce50556bd53a",
+      "decoded": {
+        "trackerId": 7,
+        "seq": 42,
+        "fixTimeMs": 1794021322400,
+        "lat": 90,
+        "lon": -180,
+        "sogKn": 0,
+        "cogDeg": 0,
+        "batteryPct": 87,
+        "charging": false,
+        "fix": "3d",
+        "lowBattery": false,
+        "buttonPressed": false,
+        "hdop": 1
+      },
+      "raw": {
+        "tracker_id": 7,
+        "seq": 42,
+        "time_ds": 583317224,
+        "lat_e7": 900000000,
+        "lon_e7": -1800000000,
+        "sog_ckn": 0,
+        "cog_cdeg": 0,
+        "battery": 87,
+        "flags": 34
+      }
+    }
+  ],
+  "invalid": [
+    {
+      "name": "wrong club key",
+      "clubKey": "f0e1d2c3b4a5968778695a4b3c2d1e0f",
+      "packet": "2107002ae8b6c4222106a516ca80a2d45d3e7886ce50422815ce",
+      "error": "auth"
+    },
+    {
+      "name": "one encrypted bit flipped",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2107002ae8b6c4222106a416ca80a2d45d3e7886ce50422815ce",
+      "error": "auth"
+    },
+    {
+      "name": "tracker ID changed in the clear",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2105002ae8b6c4222106a516ca80a2d45d3e7886ce50422815ce",
+      "error": "auth"
+    },
+    {
+      "name": "tag byte changed",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2107002ae8b6c4222106a516ca80a2d45d3e7886ce504228154e",
+      "error": "auth"
+    },
+    {
+      "name": "one byte short",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2107002ae8b6c4222106a516ca80a2d45d3e7886ce50422815",
+      "error": "length"
+    },
+    {
+      "name": "one byte long",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2107002ae8b6c4222106a516ca80a2d45d3e7886ce50422815ce00",
+      "error": "length"
+    },
+    {
+      "name": "protocol version 2",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "4107002ae8b6c4222106a516ca80a2d45d3e7886ce50422815ce",
+      "error": "version"
+    },
+    {
+      "name": "beacon type, not position",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2207002ae8b6c4222106a516ca80a2d45d3e7886ce50422815ce",
+      "error": "type"
+    },
+    {
+      "name": "latitude 91 degrees with a valid tag",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "210700016400000034e01b2700482e81815aa8145ad290d46bc1",
+      "error": "range"
+    },
+    {
+      "name": "course 360.00 degrees with a valid tag",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2107000164000000b49f261100482e81815af7675ad20e065209",
+      "error": "range"
+    },
+    {
+      "name": "battery 101 percent with a valid tag",
+      "clubKey": "000102030405060708090a0b0c0d0e0f",
+      "packet": "2107000164000000b49f261100482e81815aa81440d2f7dce1d6",
+      "error": "range"
+    }
+  ]
+}
